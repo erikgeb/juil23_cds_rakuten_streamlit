@@ -1,2 +1,6 @@
 pandas
 streamlit
+nltk
+unidecode
+joblib
+sklearn
