@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import nltk
 import html
 import re
 from unidecode import unidecode
@@ -38,7 +37,7 @@ def preprocessInput(text_input):
     return " ".join(filter_stop_words(splitted_words))
 
 icon()
-colored_header("Classification automatique de produits dans des catégories", "Projet Rakuten challenge, il s'agit de pouvoir classifier des annonces dans des catégories de produit en fonction de leur titre, description textuelle et image.")
+colored_header("Classification automatique de produits dans des catégories", "Projet Rakuten challenge, il s'agit de pouvoir classifier des annonces dans des catégories de produit en fonction de leur titre et de leur description textuelle.")
 st.sidebar.title("Sommaire")
 pages=["Introduction", "Classification automatique", "Améliorations"]
 page=st.sidebar.radio("Aller vers", pages)
@@ -50,9 +49,19 @@ tfidf_vectorizer = load('./resources/tfidf_vectorizer.pkl')
 
 if page == pages[0] : 
   st.write("### Introduction")
+  st.write("* Ce projet utilise deux classifieurs entraînés sur les désignations et descriptions issues de 84916 annonces.")
+  st.write("* Les annonces ont été saisies par des utilisateurs et en tant que telles sont de qualité variables, avec notamment des erreurs, approximations ou niveau de détail différents.")
+  
+  col1, col2 = st.columns(2)
+  with col1:
+    st.write("* Malgré la présence d'images, nous avons gardé les classifieurs basés sur les données textuelles pour plusieurs raisons : ils ont été parmi les plus performants lors de nos évaluations mais aussi les plus rapides et les plus légers.")   
+  with col2:
+    st.image("https://fr.shopping.rakuten.com/photo/web-app-development-made-simple-with-streamlit-format-poche-10412352030_L_NOPAD.jpg", width=200)
+    st.write("Exemple d'image produit, ici une image issue d'une annonce en ligne qui s'avère de bonne qualité.")
 
-  st.write("Exemple d'image produit")
-  st.image("https://fr.shopping.rakuten.com/photo/web-app-development-made-simple-with-streamlit-format-poche-10412352030_L_NOPAD.jpg")
+  st.write("* Cette application permet de voir comment les classifieur de régression logistique et machine à vecteur support traitent des données jamais vues par les modèles, issues de la validation du challenge pour lesquelles nous ne possédons pas les labels.")
+  st.write("* Pour ce faire, elle applique la même chaîne de preprocessing du texte que lors de notre traitement des données d'entraînement et déclenche les prédictions en utilisant les modèles entrainés.")
+  st.write("* Voici les catégories cible :")
   st.dataframe(data=categories_codes)
 
 if page == pages[1] : 
@@ -76,11 +85,7 @@ if page == pages[1] :
   st.write("Initialisation avec des valeurs de test aléatoires :")    
   # st.text_input("Image URL", "https://www.example.com")
   texte_filtered = preprocessInput(X_test_random['designation'] + ' ' + X_test_random['description'])
-  #texte_filtered = html.unescape(texte_filtered).lower().strip()
-  #texte_filtered = re.sub(r"[^a-z]+", " ", re.sub('<[^<]+?>', ' ', unidecode(re.sub('n°', 'numero ', texte_filtered))))
-  #splitted_words = texte_filtered.split()
-  #texte_filtered = " ".join(filter_stop_words(splitted_words))
-  
+
   st.text_area("Texte préprocessé",
     value=texte_filtered)
   
@@ -88,17 +93,24 @@ if page == pages[1] :
     text_vector = tfidf_vectorizer.transform([texte_filtered])
     text_vector = pd.DataFrame(text_vector.toarray(), columns=tfidf_vectorizer.get_feature_names_out())
     clf = load("./resources/model_RL.joblib")
+    clf_svm = load("./resources/model_clf_svm.joblib")
     pred = clf.predict(text_vector)
+    pred_svm = clf_svm.predict(text_vector)
     resulting_category = categories_codes[categories_codes['cat_code']==pred[0]]
+    resulting_category_svm = categories_codes[categories_codes['cat_code']==pred_svm[0]]
+    st.write("#### Régression logistique :")
     st.write("Catégorie prédite =", resulting_category['Catégories'].iloc[0])
     st.write("Code produit correspondant =", resulting_category['prdtypecode'].iloc[0])
+    st.write("#### Machine à vecteurs de support :")
+    st.write("Catégorie prédite =", resulting_category_svm['Catégories'].iloc[0])
+    st.write("Code produit correspondant =", resulting_category_svm['prdtypecode'].iloc[0])
     
-if page == pages[2] :
-    multi = '''### Améliorations envisageables
 
-    Le problème a été abordé comme une classification à partir des données de produits pré-existantes.
-    En tant que tel, l'utilité de cette solution semble vouée à être de la détection de mauvaise classification
-    par les utilisateurs lors de la création de leur annonce ou la proposition d'une catégorisation automatique 
-    lorsqu'une annonce est en cours de création.
-    '''
-    st.markdown(multi)
+if page == pages[2] :
+    st.write("### Améliorations envisageables")
+    st.write("#### Pour des données pré-existantes")
+    st.write("* La version actuelle pourrait permettre la détection de mauvaises classifications par les utilisateurs.")
+    st.write("* On pourrait réaliser un crawler qui parcourt les annonces Rakuten et pour chaque annonce compare sa catégorie avec celles issues des modèles. Les différences seraient persistées pour un contrôle.")
+    st.write("#### Pour une annonce en cours de saisie")
+    st.write("* On pourrait suggérer automatiquement des catégories à l'utilisateur à parir des données saisies pour favoriser une bonne catégorisation des annonces crées.")
+    st.write("* Il est également envisageable de montrer des annonces similaires dans la même catégorie pour harmoniser les offres (notamment au niveau des prix de vente).")

@@ -1,6 +1,5 @@
 pandas
 streamlit
-nltk
 unidecode
 joblib
-sklearn
+scikit-learn==1.4.0
